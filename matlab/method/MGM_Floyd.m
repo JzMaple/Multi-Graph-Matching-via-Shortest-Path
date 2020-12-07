@@ -1,4 +1,4 @@
-function [P, mat_list] = CAO_Floyd(rawMat,nodeCnt,graphCnt,scrDenom,affinity,target,optType,useCstInlier,c) 
+function [P, mat_list] = MGM_Floyd(rawMat,nodeCnt,graphCnt,scrDenom,affinity,target,optType,useCstInlier,c) 
     inlierMask =  zeros(nodeCnt,graphCnt);
     if strcmp(target.config.testType,'massOutlier'),massOutlierMode = 1;else,massOutlierMode = 0;end
     if massOutlierMode

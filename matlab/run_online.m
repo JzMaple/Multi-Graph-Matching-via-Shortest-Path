@@ -90,7 +90,7 @@ for iTest = 1:testCnt %for each indepent test
         %%%%%%%%%%%%%%%%%%%%%%%%%%Floyd-pc%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         rawMatTmp = rawMat(1:end-nodeCnt*(graphCnt - i),1:end-nodeCnt*(graphCnt - i));        
         floydStart = tic;
-        floydMat = MGM_Floyd(rawMatTmp,nodeCnt,i,scrDenomCurrent,affinity,dataset,'pair',1,0.3);
+        floydMat = CAO_Floyd(rawMatTmp,nodeCnt,i,scrDenomCurrent,affinity,dataset,'pair',1,0.3);
         floydEnd = toc(floydStart);
         [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,floydMat,6,i,iTest,floydEnd+pairEnd,i); 
         

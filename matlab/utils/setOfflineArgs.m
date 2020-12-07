@@ -1,4 +1,4 @@
-function args = setArgs
+function args = setOfflineArgs
 args.test_cnt = 5;
 
 % pairwise solver
@@ -38,3 +38,5 @@ args.caoconfig.constStep = 1.0;
 args.caoconfig.constWeightMax = 1;
 args.caoconfig.iterRange = 6;
 args.caoconfig.constIterImmune = 2;
+
+% Parameters for MGM-Floyd
