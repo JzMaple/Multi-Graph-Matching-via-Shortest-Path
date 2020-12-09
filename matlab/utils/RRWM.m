@@ -1,5 +1,5 @@
 %% Implementaion of PageRank matching algortihm
-function [ X ] = RRWM( M, group1, group2, varargin)
+function [ X ] = RRWM( M, nP1, nP2, algpar)
 % MATLAB demo code of Reweighted Random Walks Graph Matching of ECCV 2010
 %
 % Minsu Cho, Jungmin Lee, and Kyoung Mu Lee, 
@@ -14,8 +14,8 @@ function [ X ] = RRWM( M, group1, group2, varargin)
 % http://cv.snu.ac.kr/~jungminlee/
 %
 %
-% Date: 31/05/2013
-% Version: 1.22
+% Date: 01/11/2011
+% Version: 1.2
 %
 % * Update report
 %  This code is updated to be easily applied to any affinity matrix of candidate matches. 
@@ -37,20 +37,21 @@ function [ X ] = RRWM( M, group1, group2, varargin)
 param = struct( ...
     'c', 0.2, ...                   % prob. for walk or reweighted jump?
     'amp_max', 30, ...              % maximum value for amplification procedure
-    'iterMax', 300, ...             % maximum value for amplification procedure
     'thresConvergence', 1e-25, ...  % convergence threshold for random walks
     'tolC', 1e-3 ...                % convergence threshold for the Sinkhorn method
 );
-param = parseargs(param, varargin{:});
+E12 = ones(nP1,nP2);
+[L12(:,1) L12(:,2)] = find(E12);
+[group1 group2] = make_group12(L12);
 
 %% parameter structure -> parameter value
 strField = fieldnames(param);
 for i = 1:length(strField), eval([strField{i} '=param.' strField{i} ';']); end
-
+% % % % % % % % % % % % % % % % % % % % 
 % get groups for bistochastic normalization
 [idx1 ID1] = make_groups(group1);
 [idx2 ID2] = make_groups(group2);
-
+% 
 if ID1(end) < ID2(end)
     [idx1 ID1 idx2 ID2 dumVal dumSize] = make_groups_slack(idx1, ID1, idx2, ID2);
     dumDim = 1;
@@ -63,8 +64,27 @@ end
 idx1 = idx1-1; idx2 = idx2-1;
 
 % eliminate conflicting elements to prevent conflicting walks
-M = M.*~full(getConflictMatrix(group1, group2));
-
+% conf1 = zeros(size(M));
+% conf2 = zeros(size(M));
+% for i = 1:size(group1,2)
+%     idx = find(group1(:,i));
+%     for j = 1:length(idx)
+%         for k = 1:length(idx)
+%             conf1(idx(j),idx(k)) = 1;
+%         end
+%     end
+% end
+% for i = 1:size(group2,2)
+%     idx = find(group2(:,i));
+%     for j = 1:length(idx)
+%         for k = 1:length(idx)
+%             conf1(idx(j),idx(k)) = 1;
+%         end
+%     end
+% end
+% conf = conf1 | conf2;
+% M = M.*(~conf);
+% % % % % % % % % % % % % % % % % % % % % % % 
 % note that this matrix is column-wise stochastic
 d = sum(M, 1); % degree : col sum
 maxD = max(d);
@@ -75,15 +95,18 @@ nMatch = length(M);
 prev_score = ones(nMatch,1)/nMatch; % buffer for the previous score
 prev_score2 = prev_score;         % buffer for the two iteration ahead
 prev_assign = ones(nMatch,1)/nMatch; % buffer for Sinkhorn result of prev_score
+% prev_assign = rand(nMatch,1);
+% prev_assign = BregmanBiStoch(reshape(prev_assign,[40 40]),50);
+% prev_assign = prev_assign(:);
 
 bCont = 1;  iter_i = 0;
 
 % for convergence check of power iteration
-thresConvergence2 = length(prev_score)*norm(M,1)*eps;
-la = prev_score'*M*prev_score;
+% thresConvergence2 = length(prev_score)*norm(M,1)*eps;
+% la = prev_score'*M*prev_score;
 
 %% start main iteration
-while bCont && iter_i < iterMax
+while bCont && iter_i < algpar.iterMax1
     
     iter_i = iter_i + 1;
     
@@ -125,6 +148,7 @@ while bCont && iter_i < iterMax
 
     prev_score2 = prev_score;
     prev_score = cur_score;
+    % cur_score'*Mo*cur_score
     prev_assign = cur_assign;
  
 end % end of main iteration

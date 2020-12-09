@@ -1,5 +1,7 @@
-function args = setOfflineArgs
-args.test_cnt = 5;
+function args = setOnlineArgs
+args.test_cnt = 10;
+args.metric_eye = 0;
+args.baseGraphCnt = 25;
 
 % pairwise solver
 args.pairwise.method = 'RRWM';
@@ -20,10 +22,11 @@ if args.dataset.edgeAffinityWeight + args.dataset.angleAffinityWeight ~= 1
     error('The sum of edge weight and angle weight should be 1.')
 end
 % real dataset
+args.datast.scale_2D = 0.1;
 args.dataset.dataset = 'WILLOW-ObjectClass';
-args.dataset.class = 'Duck';
+args.dataset.class = 'Car';
 args.dataset.datasetDir = ['data\', args.dataset.dataset, '\', args.dataset.class];
-args.dataset.graphCnt = 32;
+args.dataset.graphCnt = 40;
 args.dataset.inlier = 10;
 args.dataset.outlier = 2;
 args.dataset.random_outlier = 2;
@@ -40,3 +43,10 @@ args.caoconfig.iterRange = 6;
 args.caoconfig.constIterImmune = 2;
 
 % Parameters for MGM-Floyd
+args.floydconfig.alpha = 0.3;
+
+% Parameters for IMGM
+args.imgmconfig.n = args.dataset.inlier + args.dataset.outlier;
+args.imgmconfig.visualization = 0;
+args.imgmconfig.iterMax = 6;
+args.imgmconfig.method = 1;

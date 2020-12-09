@@ -55,6 +55,25 @@ for iTest = 1:testCnt %for each indepent test
     for i = 4:4:graphCnt        
         scrDenomCurrent = max(max(scrDenomMatInCnt(1:i,1:i)));
         dim = ones(i, 1) * nodeCnt;
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%Floyd-pc%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%        
+        rawMatTmp = rawMat(1:end-nodeCnt*(graphCnt - i),1:end-nodeCnt*(graphCnt - i));        
+        floydStart = tic;
+        floydMat = MGM_Floyd(rawMatTmp,nodeCnt,i,scrDenomCurrent,affinity,dataset,'pair',1, args.floydconfig.alpha);
+        floydEnd = toc(floydStart);
+        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,floydMat,6,i,iTest,floydEnd+pairEnd,i); 
+        save_name = ['data\WILLOW-ObjectClass\save\',args.dataset.class,'\mat_floyd',int2str(iTest),'.mat'];
+        save(save_name, 'floydMat');
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%CAO-pc%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        rawMatTmp = rawMat(1:end-nodeCnt*(graphCnt - i),1:end-nodeCnt*(graphCnt - i));  
+        caoStart = tic;
+        caoMat = CAO(rawMatTmp,nodeCnt,i,scrDenomCurrent,'pair',1);
+        caoEnd = toc(caoStart);
+        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,caoMat,5,i,iTest,caoEnd+pairEnd,i);
+        save_name = ['data\WILLOW-ObjectClass\save\',args.dataset.class,'\mat_cao',int2str(iTest),'.mat'];
+        save(save_name, 'caoMat');
+        
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%RRWM%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         rawMatTmp = rawMat(1:end-nodeCnt*(graphCnt - i),1:end-nodeCnt*(graphCnt - i));        
         [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,rawMatTmp,1,i,iTest,pairEnd,i);
@@ -78,21 +97,7 @@ for iTest = 1:testCnt %for each indepent test
         alsStart = tic;
         alsMat = MatchALS(rawMatTmp,dim,'univsize',nodeCnt,'pSelect',1,'tol',5e-4,'beta',0);
         alsEnd = toc(alsStart);        
-        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,alsMat,4,i,iTest,pairEnd+alsEnd,i);       
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%CAO-pc%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        rawMatTmp = rawMat(1:end-nodeCnt*(graphCnt - i),1:end-nodeCnt*(graphCnt - i));  
-        caoStart = tic;
-        caoMat = CAO(rawMatTmp,nodeCnt,i,scrDenomCurrent,'pair',1);
-        caoEnd = toc(caoStart);
-        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,caoMat,5,i,iTest,caoEnd+pairEnd,i);
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%Floyd-pc%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        rawMatTmp = rawMat(1:end-nodeCnt*(graphCnt - i),1:end-nodeCnt*(graphCnt - i));        
-        floydStart = tic;
-        floydMat = MGM_Floyd(rawMatTmp,nodeCnt,i,scrDenomCurrent,affinity,dataset,'pair',1,0.3);
-        floydEnd = toc(floydStart);
-        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,floydMat,6,i,iTest,floydEnd+pairEnd,i); 
+        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,alsMat,4,i,iTest,pairEnd+alsEnd,i);
         
         fprintf('\n %02d,  %02d ',i,iTest);
         for algk=1:nMethods

@@ -17,7 +17,7 @@ if strcmp(dataset.config.datasetType,'real')
     imageName = [dataset.datasetDir,'\*.png'];       
     imgList = dir(imageName);
     
-    dataset.config.Sacle_2D = 0.05;
+    dataset.config.Sacle_2D = args.datast.scale_2D;
     dataset.config.totalCnt = length(dataList);
     dataset.config.graphCnt = min(args.dataset.graphCnt, length(dataList));  
     dataset.config.connect = 'delaunay';
@@ -36,7 +36,7 @@ if strcmp(dataset.config.datasetType,'real')
         img_name = [imgList(i).folder,'\',imgList(i).name];
         image = imread(img_name);
         dataset.image{i} = image;
-        [h, w, ~] = size(image);
+%         [h, w, ~] = size(image);
         
         name = [dataList(i).folder,'\',dataList(i).name];
         data = load(name);
@@ -50,10 +50,8 @@ if strcmp(dataset.config.datasetType,'real')
             max_x = max(inlier(1,:));   min_x = min(inlier(1,:));
             max_y = max(inlier(2,:));   min_y = min(inlier(2,:));
             rand_outlier = zeros(2,num_rand_outlier);
-%             rand_outlier(1,:) = (rand(1,num_rand_outlier)-0.5)*1.5*(max_x-min_x)+(min_x+max_x)/2;
-%             rand_outlier(2,:) = (rand(1,num_rand_outlier)-0.5)*1.5*(max_y-min_y)+(min_y+max_y)/2;
-            rand_outlier(1,:) = mean(inlier(1,:)) + (rand(1, num_rand_outlier) - 0.5) * (max_x-min_x);
-            rand_outlier(2,:) = mean(inlier(2,:)) + (rand(1, num_rand_outlier) - 0.5) * (max_y-min_y);
+            rand_outlier(1,:) = 2*(rand(1,num_rand_outlier)-0.5)*(max_x-min_x)+ (min_x+max_x)/2;
+            rand_outlier(2,:) = 2*(rand(1,num_rand_outlier)-0.5)*(max_y-min_y)+ (min_y+max_y)/2;
             
             if nPoints - nInlier < args.dataset.select_outlier
                 error('The # points is less than # inliers and # selected outlier');

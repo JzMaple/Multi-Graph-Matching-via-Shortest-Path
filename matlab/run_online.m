@@ -1,7 +1,7 @@
 clear *; clear -global *; clear all; clc; close all;
 global affinity dataset args
 
-args = setOfflineArgs;
+args = setOnlineArgs;
 dataset = setDataset(args);
 algpar = setPairwiseSolver(args);
 % mpmAlgPar = setMPMAlgPar(args);
@@ -12,7 +12,7 @@ graphCnt = dataset.config.graphCnt;
 
 % Parameter for algorithms
 nMethods = 6;
-algSet.algNameSet = {'RRWM','Spectral','MatchLift','MatchALS','CAO_PC','Floyd_PC'};
+algSet.algNameSet = {'IMGM-D','IMGM-R','CAO-PC','Floyd-PC','MGM-SPFA', 'FastSPFA'};
 accResult = zeros(nMethods,graphCnt,testCnt);
 conResult = zeros(nMethods,graphCnt,testCnt);
 scrResult = zeros(nMethods,graphCnt,testCnt);
@@ -52,47 +52,92 @@ for iTest = 1:testCnt %for each indepent test
         fprintf(' acc   scr   con   tim   ');
     end
     
-    for i = 4:4:graphCnt        
+    baseGraphCnt = args.baseGraphCnt;
+    scrDenomCurrent = max(max(scrDenomMatInCnt(1:baseGraphCnt,1:baseGraphCnt)));
+    baseMat = rawMat(1:nodeCnt*baseGraphCnt,1:nodeCnt*baseGraphCnt);
+    baseCAOMat = CAO_local(baseMat,nodeCnt, baseGraphCnt,scrDenomCurrent,affinity,dataset,'pair',1);
+    baseFloydMat = MGM_Floyd(baseMat,nodeCnt,baseGraphCnt,scrDenomCurrent,affinity,dataset,'pair',1, args.floydconfig.alpha);    
+    imgmrBase = baseCAOMat; imgmdBase = baseCAOMat; caoBase = baseCAOMat;
+    spfaBase = baseFloydMat; fspfaBase = baseFloydMat; floydBase = baseFloydMat;
+    
+    for i = args.baseGraphCnt+1:graphCnt        
         scrDenomCurrent = max(max(scrDenomMatInCnt(1:i,1:i)));
-        dim = ones(i, 1) * nodeCnt;
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%RRWM%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        rawMatTmp = rawMat(1:end-nodeCnt*(graphCnt - i),1:end-nodeCnt*(graphCnt - i));        
-        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,rawMatTmp,1,i,iTest,pairEnd,i);
         
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%Spectral%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        rawMatTmp = rawMat(1:end-nodeCnt*(graphCnt - i),1:end-nodeCnt*(graphCnt - i));        
-        spectralStart = tic;
-        spectralMat = Spectral(rawMatTmp,dim,nodeCnt);
-        spectralEnd = toc(spectralStart);
-        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,spectralMat,2,i,iTest,spectralEnd+pairEnd,i);
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%MatchLift%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        rawMatTmp = rawMat(1:end-nodeCnt*(graphCnt - i),1:end-nodeCnt*(graphCnt - i));          
-        liftStart = tic;
-        liftMat = MatchLift(rawMatTmp,dim,nodeCnt);
-        liftEnd = toc(liftStart);
-        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,liftMat,3,i,iTest,pairEnd+liftEnd,i);
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%MatchALS%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        rawMatTmp = rawMat(1:end-nodeCnt*(graphCnt - i),1:end-nodeCnt*(graphCnt - i));          
-        alsStart = tic;
-        alsMat = MatchALS(rawMatTmp,dim,'univsize',nodeCnt,'pSelect',1,'tol',5e-4,'beta',0);
-        alsEnd = toc(alsStart);        
-        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,alsMat,4,i,iTest,pairEnd+alsEnd,i);       
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%CAO-pc%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        rawMatTmp = rawMat(1:end-nodeCnt*(graphCnt - i),1:end-nodeCnt*(graphCnt - i));  
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%CAO-PC%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        caoMat = rawMat(1:nodeCnt*i,1:nodeCnt*i); 
+        caoMat(1:end-nodeCnt,1:end-nodeCnt) = caoBase;    
         caoStart = tic;
-        caoMat = CAO(rawMatTmp,nodeCnt,i,scrDenomCurrent,'pair',1);
-        caoEnd = toc(caoStart);
-        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,caoMat,5,i,iTest,caoEnd+pairEnd,i);
+        caoMat = CAO(caoMat,nodeCnt,i,scrDenomCurrent,'pair',1);
+        caoEnd = toc(caoStart);   
+        caoBase = caoMat;
+        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,caoMat,3,i,iTest,caoEnd,i);
         
-        %%%%%%%%%%%%%%%%%%%%%%%%%%Floyd-pc%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        rawMatTmp = rawMat(1:end-nodeCnt*(graphCnt - i),1:end-nodeCnt*(graphCnt - i));        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%MGM-Floyd%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        flodMat = rawMat(1:nodeCnt*i,1:nodeCnt*i); 
+        flodMat(1:end-nodeCnt,1:end-nodeCnt) = floydBase;       
         floydStart = tic;
-        floydMat = CAO_Floyd(rawMatTmp,nodeCnt,i,scrDenomCurrent,affinity,dataset,'pair',1,0.3);
+        floydMat = MGM_Floyd(flodMat,nodeCnt,i,scrDenomCurrent,affinity,dataset,'pair',1,args.floydconfig.alpha);
         floydEnd = toc(floydStart);
-        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,floydMat,6,i,iTest,floydEnd+pairEnd,i); 
+        floydBase = floydMat;
+        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,floydMat,4,i,iTest,floydEnd,i);
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%IMGM-D%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%       
+        args.imgmconfig.method = 1;
+        args.imgmconfig.N = i - 1;
+        imgmdMat = rawMat(1:nodeCnt*i,1:nodeCnt*i); 
+        imgmdMat(1:end-nodeCnt,1:end-nodeCnt) = imgmdBase; 
+        
+        imgmStart = tic;        
+        sigma = 0;
+        scrDenomMatInCntDPPTmp = cal_pair_graph_inlier_score(imgmdMat,affinity.GT(1:nodeCnt*i,1:nodeCnt*i),nodeCnt,i,nodeCnt);
+        conDenomMatInCntDPPTmp = cal_pair_graph_consistency(imgmdMat,nodeCnt,i,0);
+        simDPP = (1-sigma)*scrDenomMatInCntDPPTmp + sigma*conDenomMatInCntDPPTmp;
+        
+        imgmdMat = IMGM(simDPP, imgmdMat, args.imgmconfig);
+        imgmEnd = toc(imgmStart);
+        imgmdBase = imgmdMat;
+        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,imgmdMat,1,i,iTest,imgmEnd,i);
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%IMGM-R%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%       
+        args.imgmconfig.method = 3;
+        args.imgmconfig.N = i - 1;
+        imgmrMat = rawMat(1:nodeCnt*i,1:nodeCnt*i);
+        imgmrMat(1:end-nodeCnt,1:end-nodeCnt) = imgmrBase; 
+        
+        imgmStart = tic;        
+        sigma = 0;
+        scrDenomMatInCntRndTmp = cal_pair_graph_inlier_score(imgmrMat,affinity.GT(1:nodeCnt*i,1:nodeCnt*i),nodeCnt,i,nodeCnt);
+        conDenomMatInCntRndTmp = cal_pair_graph_consistency(imgmrMat,nodeCnt,i,0);
+        simDPP = (1-sigma)*scrDenomMatInCntRndTmp + sigma*conDenomMatInCntRndTmp;
+        
+        imgmrMat = IMGM(simDPP, imgmrMat, args.imgmconfig);
+        imgmEnd = toc(imgmStart);
+        imgmrBase = imgmrMat;
+        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,imgmrMat,2,i,iTest,imgmEnd,i);
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%MGM-SPFA%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+        spfaMat = rawMat(1:nodeCnt*i,1:nodeCnt*i);
+        spfaMat(1:end-nodeCnt,1:end-nodeCnt) = spfaBase; 
+        spfaStart = tic;
+        spfaMat = CAO_SPFA(spfaMat, nodeCnt, i, scrDenomCurrent, affinity, dataset, 'pair', 1, i, 2, 0.3);
+        spfaEnd = toc(spfaStart);
+        spfaBase = spfaMat;
+        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,spfaMat,5,i,iTest,spfaEnd,i);   
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%FastSPFA%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+        fspfaMat = rawMat(1:nodeCnt*i,1:nodeCnt*i);
+        fspfaMat(1:end-nodeCnt,1:end-nodeCnt) = fspfaBase; 
+        
+        imgmStart = tic;        
+        sigma = 0;
+        scrDenomMatInCntSPFATmp = cal_pair_graph_inlier_score(fspfaMat,affinity.GT(1:nodeCnt*i,1:nodeCnt*i),nodeCnt,i,nodeCnt);
+        conDenomMatInCntSPFATmp = cal_pair_graph_consistency(fspfaMat,nodeCnt,i,0);
+        simAP = (1-sigma)*scrDenomMatInCntSPFATmp + sigma*conDenomMatInCntSPFATmp;
+        
+        fspfaMat = FastSPFA(simAP, fspfaMat, nodeCnt, i, scrDenomCurrent, affinity, dataset, 'pair');
+        imgmEnd = toc(imgmStart);
+        fspfaBase = fspfaMat;
+        [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,fspfaMat,6,i,iTest,imgmEnd,i);    
         
         fprintf('\n %02d,  %02d ',i,iTest);
         for algk=1:nMethods
@@ -112,7 +157,7 @@ for i = 1:nMethods
     fprintf(' acc   scr   con   tim   ');
 end
 fprintf('\n');
-for i = 4:4:graphCnt
+for i = args.baseGraphCnt+1:graphCnt
     fprintf(' %02d,  all ',i);
     for algk=1:nMethods
         acc = mean(accResult(algk,i,:));
