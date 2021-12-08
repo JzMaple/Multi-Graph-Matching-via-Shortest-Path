@@ -134,4 +134,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-*/data/*
+matlab/data/*
+python/data/downloaded
