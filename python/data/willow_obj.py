@@ -137,7 +137,7 @@ class WillowObject(BaseDataset):
             anno_dict = self.__get_anno_dict(xml_name, cls)
             if shuffle:
                 random.shuffle(anno_dict["keypoints"])
-            if len(anno_dict["keypoints"]) is not 10:
+            if len(anno_dict["keypoints"]) is not (10 + self.outlier):
                 return self.get_k_samples(idx, k, mode, cls, shuffle, num_iterations)
             anno_list.append(anno_dict)
             cls_list.append(cls)

@@ -2,15 +2,16 @@ import copy
 import json
 import os
 import time
-
 import torch
 
 from data.data_loader_multigraph import GMDataset, get_dataloader
+from src.cao import CAO
 from src.rrwm import RRWM
+from src.mgm_floyd import Floyd
+from utils.build_affinity import get_K
 from utils.config import cfg
 from utils.edge2adj import edge2adj
 from utils.eval_metric import cal_accuracy, cal_affinity, cal_consistency
-from utils.get_affinity import get_affinity
 from utils.hungarian import hungarian
 from utils.utils import update_params_from_cmdline, lexlist2tensor
 
@@ -22,64 +23,107 @@ def eval_test(mat, gt_mat, affinity, m, n):
     return acc, src, con
 
 
-def update(acc, aff, con, tim, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m):
-    mat_accuracy[i_m] += acc
-    mat_affinity[i_m] += aff
-    # mat_consistency[i_m] += con
-    mat_time[i_m] += tim
+def update(acc, aff, con, tim, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m, i_test):
+    mat_accuracy[i_m][i_test] = acc
+    mat_affinity[i_m][i_test] = aff
+    mat_consistency[i_m][i_test] = con
+    mat_time[i_m][i_test] = tim
     return mat_accuracy, mat_affinity, mat_consistency, mat_time
 
 
 def offline_test(dataloader, device):
-    rrwm_solver = RRWM()
     ds = dataloader.dataset
     ds.set_num_graphs(cfg.TEST.num_graphs_in_matching_instance)
     classes = copy.deepcopy(ds.classes)
-    method_list = ["rrwm", "rrwm-old"]
-    n_method = 2
+
+    method_list = ["rrwm", "cao", "floyd"]
+    n_method = 3
+    rrwm_solver = RRWM()
+    cao_solver = CAO(cfg.cao_param, mode="c")
+    # cao_pc_solver = CAO(cfg.cao_param, mode="pc")
+    floyd_solver = Floyd(cfg.floyd_param)
+
     for i, cls in enumerate(classes):
         print("Evaluation methods on {}:".format(cls))
         ds.set_cls(cls)
-        mat_accuracy = torch.zeros(n_method)
-        mat_affinity = torch.zeros(n_method)
-        mat_consistency = torch.zeros(n_method)
-        mat_time = torch.zeros(n_method)
-        cnt = 0
-        for inputs in dataloader:
+        mat_accuracy = torch.zeros(n_method, cfg.TEST.n_test)
+        mat_affinity = torch.zeros(n_method, cfg.TEST.n_test)
+        mat_consistency = torch.zeros(n_method, cfg.TEST.n_test)
+        mat_time = torch.zeros(n_method, cfg.TEST.n_test)
+        for i_test, inputs in enumerate(dataloader):
             points_list = [_.cuda() for _ in inputs["Ps"]]
             n_points_list = [_.cuda() for _ in inputs["ns"]]
             graphs_list = [_.to("cuda") for _ in inputs["edges"]]
             perm_mat_list = [perm_mat.cuda() for perm_mat in inputs["gt_perm_mat"]]
 
             adj_list = [edge2adj(graph.edge_index, n) for graph, n in zip(graphs_list, n_points_list)]
-            affinity = get_affinity(n_points_list, points_list, adj_list)
+            K = get_K(n_points_list, points_list, adj_list)
 
             m = len(points_list)
             n = torch.max(torch.tensor(n_points_list))
             gt_mat = lexlist2tensor(perm_mat_list, m, torch.eye(n).to(device))
 
             # rrwm
-            affinity_batch = affinity.reshape(-1, n * n, n * n)
+            K_batch = K.reshape(-1, n * n, n * n)
             ns_src = torch.ones(m * m).int().to(device) * n
             ns_tgt = torch.ones(m * m).int().to(device) * n
 
             time_start = time.time()
-            rrwm_mat = rrwm_solver(affinity_batch, n, ns_src, ns_tgt)
+            rrwm_mat = rrwm_solver(K_batch, n, ns_src, ns_tgt)
             rrwm_mat = rrwm_mat.reshape(-1, n, n).transpose(1, 2).contiguous()
             rrwm_mat = hungarian(rrwm_mat, ns_src, ns_tgt).reshape(m, m, n, n)
+            # for i in range(m):
+            #     for j in range(m):
+            #         if i > j:
+            #             rrwm_mat[i, j] = rrwm_mat[j, i].transpose(0, 1)
             time_end = time.time()
+            # base = time_end - time_start
+            base = 0
 
-            acc, src, con = eval_test(rrwm_mat, gt_mat, affinity, m, n)
+            acc, src, con = eval_test(rrwm_mat, gt_mat, K, m, n)
             mat_accuracy, mat_affinity, mat_consistency, mat_time = update(
-                acc, src, con, time_end - time_start, mat_accuracy, mat_affinity, mat_consistency, mat_time, 0
+                acc, src, con, base, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m=0, i_test=i_test
             )
 
-            cnt += 1
+            # CAO c naive
+            time_start = time.time()
+            base_mat = copy.deepcopy(rrwm_mat)
+            cao_mat = cao_solver(K, base_mat, m, n)
+            time_end = time.time()
+            acc, src, con = eval_test(cao_mat, gt_mat, K, m, n)
+            tim = base + time_end - time_start
+            mat_accuracy, mat_affinity, mat_consistency, mat_time = update(
+                acc, src, con, tim, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m=1, i_test=i_test
+            )
+
+            # Floyd naive
+            time_start = time.time()
+            base_mat = copy.deepcopy(rrwm_mat)
+            floyd_mat = floyd_solver(K, base_mat, m, n)
+            time_end = time.time()
+            acc, src, con = eval_test(floyd_mat, gt_mat, K, m, n)
+            tim = base + time_end - time_start
+            mat_accuracy, mat_affinity, mat_consistency, mat_time = update(
+                acc, src, con, tim, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m=2, i_test=i_test
+            )
+
+            # for i_m in range(n_method):
+            #     print("{:>10s}: accuracy is {:.4f}, affinity is {:.4f}, consistency is {:.4f}, time is {:.4f} ".format(
+            #         method_list[i_m],
+            #         mat_accuracy[i_m][i_test].item(),
+            #         mat_affinity[i_m][i_test].item(),
+            #         mat_consistency[i_m][i_test].item(),
+            #         mat_time[i_m][i_test].item()
+            #     ))
+            # print()
 
         for i_m in range(n_method):
             print("{:>10s}: accuracy is {:.4f}, affinity is {:.4f}, consistency is {:.4f}, time is {:.4f} ".format(
-                method_list[i_m], mat_accuracy[i_m].item() / cnt, mat_affinity[i_m].item() / cnt,
-                mat_consistency[i_m].item() / cnt, mat_time[i_m].item() / cnt
+                method_list[i_m],
+                torch.mean(mat_accuracy[i_m]).item(),
+                torch.mean(mat_affinity[i_m]).item(),
+                torch.mean(mat_consistency[i_m]).item(),
+                torch.mean(mat_time[i_m]).item()
             ))
         print()
 

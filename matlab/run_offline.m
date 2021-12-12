@@ -62,8 +62,6 @@ for iTest = 1:testCnt %for each indepent test
         floydMat = MGM_Floyd(rawMatTmp,nodeCnt,i,scrDenomCurrent,affinity,dataset,'pair',1, args.floydconfig.alpha);
         floydEnd = toc(floydStart);
         [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,floydMat,6,i,iTest,floydEnd+pairEnd,i); 
-        save_name = ['data\WILLOW-ObjectClass\save\',args.dataset.class,'\mat_floyd',int2str(iTest),'.mat'];
-        save(save_name, 'floydMat');
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%CAO-pc%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         rawMatTmp = rawMat(1:end-nodeCnt*(graphCnt - i),1:end-nodeCnt*(graphCnt - i));  
@@ -71,8 +69,6 @@ for iTest = 1:testCnt %for each indepent test
         caoMat = CAO(rawMatTmp,nodeCnt,i,scrDenomCurrent,'pair',1);
         caoEnd = toc(caoStart);
         [accResult,scrResult,conResult,timResult] = computeResult(accResult,scrResult,conResult,timResult,caoMat,5,i,iTest,caoEnd+pairEnd,i);
-        save_name = ['data\WILLOW-ObjectClass\save\',args.dataset.class,'\mat_cao',int2str(iTest),'.mat'];
-        save(save_name, 'caoMat');
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%RRWM%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         rawMatTmp = rawMat(1:end-nodeCnt*(graphCnt - i),1:end-nodeCnt*(graphCnt - i));        

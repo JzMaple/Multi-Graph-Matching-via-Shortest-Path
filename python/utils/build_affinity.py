@@ -46,7 +46,7 @@ def get_pair_affinity(edge_feat_1, angle_feat_1, edge_feat_2, angle_feat_2, adj1
     return affinity
 
 
-def get_affinity(n_points, points_list, adj_list):
+def get_K(n_points, points_list, adj_list):
     """
     :param n_points, list of int/tensor, (1), points # of graphs
     :param points_list, list of tensor, (n_i, 2) for each

@@ -1,6 +1,7 @@
 import torch
 
-from utils.eval_metric import get_affinity_score, get_pairwise_consistency2
+from utils.eval_metric import get_batch_pc_opt, get_single_pc_opt
+from utils.eval_metric import get_batch_affinity, get_single_affinity
 
 
 class Floyd(torch.nn.Module):
@@ -20,35 +21,40 @@ class Floyd(torch.nn.Module):
 def mgm_floyd_solver(K, X, num_graph, num_node, const):
     m, n = num_graph, num_node
 
-    # calculate score of initial matching X
-    aff_score = get_affinity_score(X.reshape(-1, n, n), K.reshape(-1, n*n, n*n)).reshape(m, m)
-    pair_con = get_pairwise_consistency2(X)
-    score = pair_con * const + aff_score * (1 - const)
-    print("aff_score", aff_score)
-    print("pair_con", pair_con)
-    print("score", score)
+    for k in range(m):
+        pair_aff = get_batch_affinity(X.reshape(-1, n, n), K.reshape(-1, n * n, n * n)).reshape(m, m)
+        pair_aff = pair_aff - torch.eye(m).cuda() * pair_aff
+        norm = torch.max(pair_aff)
+        for i in range(m):
+            for j in range(m):
+                if i >= j:
+                    continue
+                score_ori = get_single_affinity(X[i, j], K[i, j], norm=norm)
+                X_combo = torch.matmul(X[i, k], X[k, j])
+                score_combo = get_single_affinity(X_combo, K[i, j], norm=norm)
 
-    for v in range(n):
-        # calculate update matching Xu
-        # Xu(i,j) = X(i,v) * X(v,j)
-        X1 = X[:, v, :, :].repeat(1, m, 1, 1).reshape(-1, n, n)  # X1(i,j) = X(i,v)
-        X2 = X[v, :, :, :].repeat(m, 1, 1, 1).reshape(-1, n, n)  # X2(i,j) = X(v,j)
-        Xu = torch.bmm(X1, X2).reshape(m, m, n, n)  # Xu(i,j) = X(i,v) * X(v,j)
+                if score_combo > score_ori:
+                    X[i, j] = X_combo
+                    X[j, i] = X_combo.transpose(0, 1)
 
-        # calculate affinity score of update matching
-        aff_score_upd = get_affinity_score(Xu.reshape(-1, n, n), K.reshape(-1, n * n, n * n))
-        aff_score_upd = aff_score_upd.reshape(m, m)
+    for k in range(m):
+        pair_aff = get_batch_affinity(X.reshape(-1, n, n), K.reshape(-1, n * n, n * n)).reshape(m, m)
+        pair_aff = pair_aff - torch.eye(m).cuda() * pair_aff
+        norm = torch.max(pair_aff)
+        for i in range(m):
+            for j in range(m):
+                if i >= j:
+                    continue
+                aff_ori = get_single_affinity(X[i, j], K[i, j], norm=norm)
+                con_ori = get_single_pc_opt(X, i, j)
+                score_ori = aff_ori * (1 - const) + con_ori * const
 
-        # calculate pairwise consistency of update matching
-        pc_tmp1 = pair_con[:, v].repeat(1, m)  # pc_tmp1(i,j) = pair_con(i,v)
-        pc_tmp2 = pair_con[v, :].repeat(m, 1)  # pc_tmp2(i,j) = pair_con(v,j)
-        pair_con_upd = torch.sqrt(pc_tmp1 * pc_tmp2)
+                X_combo = torch.matmul(X[i, k], X[k, j])
+                aff_combo = get_single_affinity(X_combo, K[i, j], norm=norm)
+                con_combo = get_single_pc_opt(X, i, j, X_combo)
+                score_combo = aff_combo * (1 - const) + con_combo * const
 
-        score_upd = pair_con_upd * const + aff_score_upd * (1 - const)
-
-        # update
-        idx = score_upd > score
-        X = Xu * idx + X * (1 - idx)
-        score = score_upd * idx + score * (1 - idx)
-
+                if score_combo > score_ori:
+                    X[i, j] = X_combo
+                    X[j, i] = X_combo.transpose(0, 1)
     return X
