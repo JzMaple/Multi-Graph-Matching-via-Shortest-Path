@@ -6,14 +6,13 @@ from utils.eval_metric import get_single_pc_opt, get_batch_pc_opt
 
 
 class CAO(torch.nn.Module):
-    def __init__(self, params, batch_wise=False, mode="c"):
+    def __init__(self, params, mode="c"):
         super(CAO, self).__init__()
         self.params = params
         self.params.mode = mode
-        self.batch_wise = batch_wise
 
     def forward(self, K, X, m, n):
-        if self.batch_wise:
+        if self.params.mode == "pc":
             mat = cao_solver(
                 K=K,
                 X=X,
@@ -25,7 +24,7 @@ class CAO(torch.nn.Module):
                 const_max=self.params.const_max,
                 iter_boost=self.params.iter_boost
             )
-        else:
+        elif self.params.mode == "c":
             mat = cao_naive(
                 K=K,
                 X=X,
@@ -35,14 +34,14 @@ class CAO(torch.nn.Module):
                 const_init=self.params.const_init,
                 const_step=self.params.const_step,
                 const_max=self.params.const_max,
-                iter_boost=self.params.iter_boost,
-                mode=self.params.mode
+                iter_boost=self.params.iter_boost
             )
+        else:
+            raise NotImplementedError
         return mat
 
 
-def cao_naive(K, X, num_graph, num_node, iter_max=6, const_init=0.3, const_step=1.1, const_max=1.0, iter_boost=2,
-              mode='pc'):
+def cao_naive(K, X, num_graph, num_node, iter_max=6, const_init=0.3, const_step=1.1, const_max=1.0, iter_boost=2):
     """
     :param K: affinity matrix, (m, m, n*n, n*n)
     :param X, initial matching, (m, m, n, n)
@@ -62,7 +61,6 @@ def cao_naive(K, X, num_graph, num_node, iter_max=6, const_init=0.3, const_step=
         if iter >= iter_boost:
             const = np.min([const * const_step, const_max])
         pair_con = get_batch_pc_opt(X)
-        # print("pair_con", torch.mean(pair_con).item())
         pair_aff = get_batch_affinity(X.reshape(-1, n, n), K.reshape(-1, n * n, n * n)).reshape(m, m)
         pair_aff = pair_aff - torch.eye(m).cuda() * pair_aff
         norm = torch.max(pair_aff)
@@ -71,12 +69,8 @@ def cao_naive(K, X, num_graph, num_node, iter_max=6, const_init=0.3, const_step=
                 if i >= j:
                     continue
                 aff_ori = get_single_affinity(X[i, j], K[i, j], norm=norm)
-                if mode == "c":
-                    con_ori = get_single_pc_opt(X, i, j)
-                elif mode == "pc":
-                    con_ori = torch.sqrt(pair_con[i, j])
-                else:
-                    raise NotImplementedError
+                con_ori = get_single_pc_opt(X, i, j)
+                # con_ori = torch.sqrt(pair_con[i, j])
                 if iter < iter_boost:
                     score_ori = aff_ori
                 else:
@@ -85,12 +79,8 @@ def cao_naive(K, X, num_graph, num_node, iter_max=6, const_init=0.3, const_step=
                 for k in range(m):
                     X_combo = torch.matmul(X[i, k], X[k, j])
                     aff_combo = get_single_affinity(X_combo, K[i, j], norm=norm)
-                    if mode == "c":
-                        con_combo = get_single_pc_opt(X, i, j, X_combo)
-                    elif mode == "pc":
-                        con_combo = torch.sqrt(pair_con[i, k] * pair_con[k, j])
-                    else:
-                        raise NotImplementedError
+                    con_combo = get_single_pc_opt(X, i, j, X_combo)
+                    # con_combo = torch.sqrt(pair_con[i, k] * pair_con[k, j])
                     if iter < iter_boost:
                         score_combo = aff_combo
                     else:

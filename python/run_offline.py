@@ -36,12 +36,13 @@ def offline_test(dataloader, device):
     ds.set_num_graphs(cfg.TEST.num_graphs_in_matching_instance)
     classes = copy.deepcopy(ds.classes)
 
-    method_list = ["rrwm", "cao", "floyd"]
-    n_method = 3
+    method_list = ["rrwm", "cao", "floyd", "floyd-pc"]
+    n_method = 4
     rrwm_solver = RRWM()
     cao_solver = CAO(cfg.cao_param, mode="c")
     # cao_pc_solver = CAO(cfg.cao_param, mode="pc")
-    floyd_solver = Floyd(cfg.floyd_param)
+    floyd_solver = Floyd(cfg.floyd_param, mode="c")
+    floyd_fast_solver = Floyd(cfg.floyd_param, mode="pc")
 
     for i, cls in enumerate(classes):
         print("Evaluation methods on {}:".format(cls))
@@ -85,7 +86,7 @@ def offline_test(dataloader, device):
                 acc, src, con, base, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m=0, i_test=i_test
             )
 
-            # CAO c naive
+            # CAO naive
             time_start = time.time()
             base_mat = copy.deepcopy(rrwm_mat)
             cao_mat = cao_solver(K, base_mat, m, n)
@@ -107,15 +108,26 @@ def offline_test(dataloader, device):
                 acc, src, con, tim, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m=2, i_test=i_test
             )
 
-            # for i_m in range(n_method):
-            #     print("{:>10s}: accuracy is {:.4f}, affinity is {:.4f}, consistency is {:.4f}, time is {:.4f} ".format(
-            #         method_list[i_m],
-            #         mat_accuracy[i_m][i_test].item(),
-            #         mat_affinity[i_m][i_test].item(),
-            #         mat_consistency[i_m][i_test].item(),
-            #         mat_time[i_m][i_test].item()
-            #     ))
-            # print()
+            # Floyd fast
+            time_start = time.time()
+            base_mat = copy.deepcopy(rrwm_mat)
+            floyd_fast_mat = floyd_fast_solver(K, base_mat, m, n)
+            time_end = time.time()
+            acc, src, con = eval_test(floyd_fast_mat, gt_mat, K, m, n)
+            tim = base + time_end - time_start
+            mat_accuracy, mat_affinity, mat_consistency, mat_time = update(
+                acc, src, con, tim, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m=3, i_test=i_test
+            )
+
+            for i_m in range(n_method):
+                print("{:>10s}: accuracy is {:.4f}, affinity is {:.4f}, consistency is {:.4f}, time is {:.4f} ".format(
+                    method_list[i_m],
+                    mat_accuracy[i_m][i_test].item(),
+                    mat_affinity[i_m][i_test].item(),
+                    mat_consistency[i_m][i_test].item(),
+                    mat_time[i_m][i_test].item()
+                ))
+            print()
 
         for i_m in range(n_method):
             print("{:>10s}: accuracy is {:.4f}, affinity is {:.4f}, consistency is {:.4f}, time is {:.4f} ".format(

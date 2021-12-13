@@ -23,7 +23,7 @@
     "iter_boost": 2
   },
   "floyd_param": {
-    "const": 0.3
+    "const": 0.4
   },
   "model_dir": "results/voc_basic"
 }
