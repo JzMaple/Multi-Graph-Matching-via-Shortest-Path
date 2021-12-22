@@ -14,10 +14,13 @@ If you find our work or code useful in your research, please consider citing:
 
 ```latex
 @article{jiang2020unifying,
-  title={Unifying offline and online multi-graph matching via finding shortest paths on supergraph},
   author={Jiang, Zetian and Wang, Tianzhe and Yan, Junchi},
-  journal={IEEE transactions on pattern analysis and machine intelligence},
-  year={2020},
-  publisher={IEEE}
+  journal={IEEE Transactions on Pattern Analysis and Machine Intelligence}, 
+  title={Unifying Offline and Online Multi-Graph Matching via Finding Shortest Paths on Supergraph}, 
+  year={2021},
+  volume={43},
+  number={10},
+  pages={3648-3663},
+  doi={10.1109/TPAMI.2020.2989928}
 }
 ```
