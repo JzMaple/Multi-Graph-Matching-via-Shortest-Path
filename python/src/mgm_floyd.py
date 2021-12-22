@@ -5,24 +5,29 @@ from utils.eval_metric import get_batch_pc_opt, get_single_pc_opt
 
 
 class Floyd(torch.nn.Module):
-    def __init__(self, params, mode="c"):
+    def __init__(self, mode="pc"):
         super(Floyd, self).__init__()
-        self.params = params
         self.mode = mode
+        params.const = 0.5
+        self.params = params
 
-    def forward(self, K, X, m, n):
-        if self.mode == "c":
+    def forward(self, K, X, m, n, mode=None, params=None):
+        if mode is None:
+            mode = self.mode
+        if params is None:
+            params = self.params
+        if mode == "c":
             mat = mgm_floyd_solver(K=K,
                                    X=X,
                                    num_graph=m,
                                    num_node=n,
-                                   const=self.params.const)
-        elif self.mode == "pc":
+                                   const=params.const)
+        elif mode == "pc":
             mat = mgm_floyd_fast_solver(K=K,
                                         X=X,
                                         num_graph=m,
                                         num_node=n,
-                                        const=self.params.const)
+                                        const=params.const)
         else:
             raise NotImplementedError
         return mat
