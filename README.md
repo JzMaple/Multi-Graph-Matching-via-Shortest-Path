@@ -8,6 +8,25 @@ It addresses the problem of multiple graph matching (MGM) by considering both of
 
 In this repository, we release code and data for both MATLAB and Python version.
 
+
+
+#### Get Started
+
+MATLAB version is developed and tested on MATLAB2018b, and Python version is developed and tested with Ubuntu 16.04, Python 3.6.9, Pytorch 1.4.0, cuda11.0 for Python code.
+
+1. Download the dataset by running `./ download_data.sh`
+
+2. For MATLAB version, just run `run_offline.m` and `run_online.m`. The default configuration are settled in .`/matlab/setArgs`
+
+3. For Python version, default configuration files are stored in `./python/experiments`.
+
+   ```
+   cd ./python
+   python run_offline.py ./experiments/offline.json
+   ```
+
+   Online setting has not been supported yet.
+
 #### Citation
 
 If you find our work or code useful in your research, please consider citing:

@@ -93,6 +93,15 @@ def offline_test(dataloader, device):
 
             # CAO fast
             # CAO pc requires much more memery ( O(m^3 n^4) ), which cannot be supported by GPU with 12GB.
+            # time_start = time.time()
+            # base_mat = copy.deepcopy(rrwm_mat)
+            # cao_fast_mat = cao_solver(K, base_mat, m, n, cfg.cao_fast_param, mode="pc")
+            # time_end = time.time()
+            # acc, src, con = eval_test(cao_fast_mat, gt_mat, K, m, n)
+            # tim = base + time_end - time_start
+            # mat_accuracy, mat_affinity, mat_consistency, mat_time = update(
+            #     acc, src, con, tim, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m=1, i_test=i_test
+            # )
 
             # Floyd
             time_start = time.time()
