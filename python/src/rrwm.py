@@ -20,7 +20,7 @@ class RRWM(nn.Module):
         self.max_iter = max_iter
         self.alpha = alpha
         self.beta = beta
-        self.sk = Sinkhorn(max_iter=sk_iter, log_forward=True, batched_operation=False)
+        self.sk = Sinkhorn(max_iter=sk_iter, log_forward=True, batched_operation=True)
 
     def forward(self, M, num_src, ns_src, ns_tgt, v0=None):
         d = M.sum(dim=2, keepdim=True)

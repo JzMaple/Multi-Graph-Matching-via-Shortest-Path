@@ -15,6 +15,10 @@ from utils.eval_metric import cal_accuracy, cal_affinity, cal_consistency
 from utils.hungarian import hungarian
 from utils.utils import update_params_from_cmdline, lexlist2tensor
 
+rrwm_solver = RRWM()
+cao_solver = CAO()
+floyd_solver = Floyd()
+
 
 def eval_test(mat, gt_mat, affinity, m, n):
     acc = cal_accuracy(mat, gt_mat, n)
@@ -38,11 +42,6 @@ def offline_test(dataloader, device):
 
     method_list = ["rrwm", "cao", "floyd", "floyd-pc"]
     n_method = 4
-    rrwm_solver = RRWM()
-    cao_solver = CAO(cfg.cao_param, mode="c")
-    # cao_pc_solver = CAO(cfg.cao_param, mode="pc")
-    floyd_solver = Floyd(cfg.floyd_param, mode="c")
-    floyd_fast_solver = Floyd(cfg.floyd_param, mode="pc")
 
     for i, cls in enumerate(classes):
         print("Evaluation methods on {}:".format(cls))
@@ -73,23 +72,18 @@ def offline_test(dataloader, device):
             rrwm_mat = rrwm_solver(K_batch, n, ns_src, ns_tgt)
             rrwm_mat = rrwm_mat.reshape(-1, n, n).transpose(1, 2).contiguous()
             rrwm_mat = hungarian(rrwm_mat, ns_src, ns_tgt).reshape(m, m, n, n)
-            # for i in range(m):
-            #     for j in range(m):
-            #         if i > j:
-            #             rrwm_mat[i, j] = rrwm_mat[j, i].transpose(0, 1)
             time_end = time.time()
-            # base = time_end - time_start
-            base = 0
+            base = time_end - time_start
 
             acc, src, con = eval_test(rrwm_mat, gt_mat, K, m, n)
             mat_accuracy, mat_affinity, mat_consistency, mat_time = update(
                 acc, src, con, base, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m=0, i_test=i_test
             )
 
-            # CAO naive
+            # CAO
             time_start = time.time()
             base_mat = copy.deepcopy(rrwm_mat)
-            cao_mat = cao_solver(K, base_mat, m, n)
+            cao_mat = cao_solver(K, base_mat, m, n, cfg.cao_param, mode="c")
             time_end = time.time()
             acc, src, con = eval_test(cao_mat, gt_mat, K, m, n)
             tim = base + time_end - time_start
@@ -100,10 +94,10 @@ def offline_test(dataloader, device):
             # CAO fast
             # CAO pc requires much more memery ( O(m^3 n^4) ), which cannot be supported by GPU with 12GB.
 
-            # Floyd naive
+            # Floyd
             time_start = time.time()
             base_mat = copy.deepcopy(rrwm_mat)
-            floyd_mat = floyd_solver(K, base_mat, m, n)
+            floyd_mat = floyd_solver(K, base_mat, m, n, cfg.floyd_param, mode="c")
             time_end = time.time()
             acc, src, con = eval_test(floyd_mat, gt_mat, K, m, n)
             tim = base + time_end - time_start
@@ -114,23 +108,13 @@ def offline_test(dataloader, device):
             # Floyd fast
             time_start = time.time()
             base_mat = copy.deepcopy(rrwm_mat)
-            floyd_fast_mat = floyd_fast_solver(K, base_mat, m, n)
+            floyd_fast_mat = floyd_solver(K, base_mat, m, n, cfg.floyd_fast_param, mode="pc")
             time_end = time.time()
             acc, src, con = eval_test(floyd_fast_mat, gt_mat, K, m, n)
             tim = base + time_end - time_start
             mat_accuracy, mat_affinity, mat_consistency, mat_time = update(
                 acc, src, con, tim, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m=3, i_test=i_test
             )
-
-            for i_m in range(n_method):
-                print("{:>10s}: accuracy is {:.4f}, affinity is {:.4f}, consistency is {:.4f}, time is {:.4f} ".format(
-                    method_list[i_m],
-                    mat_accuracy[i_m][i_test].item(),
-                    mat_affinity[i_m][i_test].item(),
-                    mat_consistency[i_m][i_test].item(),
-                    mat_time[i_m][i_test].item()
-                ))
-            print()
 
         for i_m in range(n_method):
             print("{:>10s}: accuracy is {:.4f}, affinity is {:.4f}, consistency is {:.4f}, time is {:.4f} ".format(

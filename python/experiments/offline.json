@@ -6,7 +6,7 @@
   "eval_sampling": "all",
   "RANDOM_SEED": 321,
   "TEST": {
-    "n_test": 5,
+    "n_test": 20,
     "num_graphs_in_matching_instance": 20,
     "outlier": 1
   },
@@ -15,9 +15,8 @@
     "scale_2D": 0.1
   },
   "cao_param": {
-    "mode": null,
     "iter_max": 6,
-    "const_init": 0.2,
+    "const_init": 0.3,
     "const_step": 1.1,
     "const_max": 1.0,
     "iter_boost": 2
@@ -25,5 +24,8 @@
   "floyd_param": {
     "const": 0.4
   },
-  "model_dir": "results/voc_basic"
+  "floyd_fast_param": {
+    "const": 0.5
+  },
+  "model_dir": "results/offline_test"
 }
