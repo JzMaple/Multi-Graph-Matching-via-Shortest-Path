@@ -3,6 +3,9 @@ import json
 import os
 import time
 import torch
+import random
+
+import numpy as np
 
 from data.data_loader_multigraph import GMDataset, get_dataloader
 from src.cao import CAO
@@ -40,8 +43,8 @@ def offline_test(dataloader, device):
     ds.set_num_graphs(cfg.TEST.num_graphs_in_matching_instance)
     classes = copy.deepcopy(ds.classes)
 
-    method_list = ["rrwm", "cao", "floyd", "floyd-pc"]
-    n_method = 4
+    method_list = ["rrwm", "cao", "cao-pc", "floyd", "floyd-pc"]
+    n_method = 5
 
     for i, cls in enumerate(classes):
         print("Evaluation methods on {}:".format(cls))
@@ -93,15 +96,15 @@ def offline_test(dataloader, device):
 
             # CAO fast
             # CAO pc requires much more memery ( O(m^3 n^4) ), which cannot be supported by GPU with 12GB.
-            # time_start = time.time()
-            # base_mat = copy.deepcopy(rrwm_mat)
-            # cao_fast_mat = cao_solver(K, base_mat, m, n, cfg.cao_fast_param, mode="pc")
-            # time_end = time.time()
-            # acc, src, con = eval_test(cao_fast_mat, gt_mat, K, m, n)
-            # tim = base + time_end - time_start
-            # mat_accuracy, mat_affinity, mat_consistency, mat_time = update(
-            #     acc, src, con, tim, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m=1, i_test=i_test
-            # )
+            time_start = time.time()
+            base_mat = copy.deepcopy(rrwm_mat)
+            cao_fast_mat = cao_solver(K, base_mat, m, n, cfg.cao_fast_param, mode="pc")
+            time_end = time.time()
+            acc, src, con = eval_test(cao_fast_mat, gt_mat, K, m, n)
+            tim = base + time_end - time_start
+            mat_accuracy, mat_affinity, mat_consistency, mat_time = update(
+                acc, src, con, tim, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m=2, i_test=i_test
+            )
 
             # Floyd
             time_start = time.time()
@@ -111,7 +114,7 @@ def offline_test(dataloader, device):
             acc, src, con = eval_test(floyd_mat, gt_mat, K, m, n)
             tim = base + time_end - time_start
             mat_accuracy, mat_affinity, mat_consistency, mat_time = update(
-                acc, src, con, tim, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m=2, i_test=i_test
+                acc, src, con, tim, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m=3, i_test=i_test
             )
 
             # Floyd fast
@@ -122,7 +125,7 @@ def offline_test(dataloader, device):
             acc, src, con = eval_test(floyd_fast_mat, gt_mat, K, m, n)
             tim = base + time_end - time_start
             mat_accuracy, mat_affinity, mat_consistency, mat_time = update(
-                acc, src, con, tim, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m=3, i_test=i_test
+                acc, src, con, tim, mat_accuracy, mat_affinity, mat_consistency, mat_time, i_m=4, i_test=i_test
             )
 
         for i_m in range(n_method):
@@ -143,7 +146,14 @@ if __name__ == "__main__":
     with open(os.path.join(cfg.model_dir, "settings.json"), "w") as f:
         json.dump(cfg, f)
 
-    torch.manual_seed(cfg.RANDOM_SEED)
+    seed = cfg.RANDOM_SEED
+    torch.manual_seed(seed)  # 为CPU设置随机种子
+    torch.cuda.manual_seed(seed)  # 为当前GPU设置随机种子
+    torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU，为所有GPU设置随机种子
+    np.random.seed(seed)  # Numpy module.
+    random.seed(seed)  # Python random module.
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
 
     dataset_len = {"test": cfg.TEST.n_test * cfg.BATCH_SIZE}
     image_dataset = {

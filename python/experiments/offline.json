@@ -6,7 +6,7 @@
   "eval_sampling": "all",
   "RANDOM_SEED": 321,
   "TEST": {
-    "n_test": 1 ,
+    "n_test": 20,
     "num_graphs_in_matching_instance": 20,
     "outlier": 1
   },
