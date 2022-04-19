@@ -147,11 +147,11 @@ if __name__ == "__main__":
         json.dump(cfg, f)
 
     seed = cfg.RANDOM_SEED
-    torch.manual_seed(seed)  # 为CPU设置随机种子
-    torch.cuda.manual_seed(seed)  # 为当前GPU设置随机种子
-    torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU，为所有GPU设置随机种子
-    np.random.seed(seed)  # Numpy module.
-    random.seed(seed)  # Python random module.
+    torch.manual_seed(seed)             # set random seed for CPU
+    torch.cuda.manual_seed(seed)        # set random seed for GPU
+    torch.cuda.manual_seed_all(seed)    # if you are using multi-GPU，set random seed for all GPUs
+    np.random.seed(seed)                # Numpy module.
+    random.seed(seed)                   # Python random module.
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
@@ -162,7 +162,7 @@ if __name__ == "__main__":
     }
     dataloader = {"test": get_dataloader(image_dataset["test"], fix_seed=False)}
 
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("cpu")
 
     offline_test(dataloader["test"], device=device)

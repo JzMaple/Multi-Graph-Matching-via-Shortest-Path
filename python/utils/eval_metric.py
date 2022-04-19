@@ -1,9 +1,23 @@
 import torch
+from utils.config import cfg
 
 
 def cal_accuracy(mat, gt_mat, n):
-    acc = torch.mean(1 - torch.sum(torch.abs(mat - gt_mat), dim=[2, 3]) / 2 / n)
-    return acc
+    m = mat.shape[0]
+    acc = 0
+    for i in range(m):
+        for j in range(m):
+            _mat, _gt_mat = mat[i, j], gt_mat[i, j]
+            row_sum = torch.sum(_gt_mat, dim=0)
+            col_sum = torch.sum(_gt_mat, dim=1)
+            row_idx = [k for k in range(n) if row_sum[k] != 0]
+            col_idx = [k for k in range(n) if col_sum[k] != 0]
+            _mat = _mat[row_idx, :]
+            _mat = _mat[:, col_idx]
+            _gt_mat = _gt_mat[row_idx, :]
+            _gt_mat = _gt_mat[:, col_idx]
+            acc += 1 - torch.sum(torch.abs(_mat - _gt_mat)) / 2 / (n - cfg.TEST.outlier)
+    return acc / (m * m)
 
 
 def cal_consistency(mat, gt_mat, m, n):
